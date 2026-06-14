@@ -1,0 +1,7 @@
+# Protocol SIFT Enhanced - Dependencies
+# No external dependencies required - uses Python standard library only
+# This ensures maximum compatibility with SIFT Workstation
+
+# For development/testing (optional):
+# pytest>=7.0.0
+# pytest-cov>=4.0.0
