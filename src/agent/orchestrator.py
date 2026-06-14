@@ -14,6 +14,7 @@ from ..mcp_server.server import SIFTMCPServer
 from .planner import AnalysisPlanner, AnalysisPhase
 from .self_correction import SelfCorrectionEngine
 from ..validation.accuracy import AccuracyTracker, Finding
+from .demo_data import DemoDataGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +31,14 @@ class AgentOrchestrator:
     5. Maintains evidence integrity throughout
     """
     
-    def __init__(self, mcp_server: SIFTMCPServer, evidence_path: str):
+    def __init__(self, mcp_server: SIFTMCPServer, evidence_path: str, demo_mode: bool = False):
         self.mcp_server = mcp_server
         self.evidence_path = Path(evidence_path)
         self.planner = AnalysisPlanner()
         self.self_correction = SelfCorrectionEngine()
         self.accuracy_tracker = AccuracyTracker()
+        self.demo_mode = demo_mode
+        self.demo_generator = DemoDataGenerator(evidence_path) if demo_mode else None
         
         self.current_phase = AnalysisPhase.TRIAGE
         self.findings: List[Finding] = []
@@ -45,11 +48,11 @@ class AgentOrchestrator:
         # Track analysis state
         self.analyzed_artifacts = set()
         self.correlation_graph: Dict[str, List[str]] = {}
-        
+
     def analyze(self, case_description: str) -> Dict[str, Any]:
         """
         Main entry point for autonomous analysis.
-        
+
         Args:
             case_description: Description of the case or evidence to analyze
             
@@ -58,47 +61,67 @@ class AgentOrchestrator:
         """
         start_time = datetime.utcnow()
         iteration = 0
-        
+
         logger.info(f"Starting autonomous analysis: {case_description}")
-        
+
+        # In demo mode, load pre-built findings directly
+        if self.demo_mode and self.demo_generator:
+            self._load_demo_findings()
+
         # Create initial analysis plan
         plan = self.planner.create_plan(case_description, self.evidence_path)
-        
+
         while iteration < self.max_iterations:
             iteration += 1
             logger.info(f"Analysis iteration {iteration}/{self.max_iterations}")
-            
+
             # Execute current phase
             phase_result = self._execute_phase(plan)
-            
+
             # Check for self-correction needs
             corrections_needed = self.self_correction.analyze_results(
                 phase_result, self.findings
             )
-            
+
             if corrections_needed:
                 logger.info(f"Self-correction triggered: {len(corrections_needed)} issues found")
                 plan = self.planner.revise_plan(plan, corrections_needed)
-                
+
                 # Log the self-correction
                 self._log_self_correction(iteration, corrections_needed)
                 continue
-            
+
             # Validate findings
             validation_result = self._validate_findings()
-            
+
             if validation_result["needs_more_data"]:
                 logger.info("Validation requires additional analysis")
                 plan = self.planner.add_validation_steps(plan, validation_result["gaps"])
                 continue
-            
+
             # Check if analysis is complete
             if self._is_analysis_complete(plan):
                 break
-        
+
         # Generate final report
         end_time = datetime.utcnow()
         return self._generate_report(start_time, end_time, iteration)
+
+    def _load_demo_findings(self):
+        """Load pre-built demo findings into the orchestrator."""
+        demo_findings = self.demo_generator.get_demo_findings()
+        for finding_data in demo_findings:
+            finding = Finding(
+                category=finding_data["category"],
+                severity=finding_data["severity"],
+                description=finding_data["description"],
+                evidence_source=finding_data["evidence_source"],
+                confidence=finding_data["confidence"],
+                raw_evidence=finding_data["raw_evidence"],
+                timestamp=datetime.fromisoformat(finding_data["timestamp"]) if finding_data.get("timestamp") else None,
+            )
+            self.findings.append(finding)
+        logger.info(f"Loaded {len(demo_findings)} pre-built demo findings")
     
     def _execute_phase(self, plan: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the current analysis phase."""
@@ -109,15 +132,27 @@ class AgentOrchestrator:
             "errors": []
         }
         
-        # Get tools for current phase
-        tools_to_execute = self.planner.get_phase_tools(self.current_phase)
+        # Get tools for current phase from the generated plan
+        tools_to_execute = plan.get("phases", {}) \
+            .get(self.current_phase.value, {}) \
+            .get("tools", [])
+        
+        if not tools_to_execute:
+            # Fallback to planner-defined phase tools if plan is missing entries
+            tools_to_execute = self.planner.get_phase_tools(self.current_phase)
         
         for tool_task in tools_to_execute:
-            tool_name = tool_task["tool"]
-            arguments = tool_task["arguments"]
+            tool_name = tool_task.get("tool")
+            arguments = tool_task.get("arguments", {})
             
-            # Execute tool via MCP server
-            result = self.mcp_server.execute_tool(tool_name, arguments)
+            if not tool_name:
+                continue
+            
+            # Execute tool - use demo data if in demo mode
+            if self.demo_mode and self.demo_generator:
+                result = self.demo_generator.get_demo_output(tool_name, arguments)
+            else:
+                result = self.mcp_server.execute_tool(tool_name, arguments)
             
             # Log execution
             execution_record = {

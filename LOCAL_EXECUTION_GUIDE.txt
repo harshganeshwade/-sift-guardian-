@@ -1,0 +1,63 @@
+## Local Execution Guide
+
+There is no live deployment URL for this repository. Judges can run the agent locally using the provided scripts and evidence.
+
+### 1. Open the project folder
+
+```powershell
+cd /d D:\Projects\Find Evil!
+```
+
+### 2. Verify Python
+
+```powershell
+python --version
+```
+
+- Must be Python 3.8 or newer.
+- The project uses only the Python standard library, so no additional dependencies are required.
+
+### 3. Run the agent against provided evidence
+
+```powershell
+python main.py sample_evidence --max-iterations 1
+```
+
+This will:
+- analyze the `sample_evidence` folder
+- create `output/analysis_results.json`
+- create `output/audit_trail.json`
+- create `output/integrity_report.json`
+
+### 4. Generate the dashboard
+
+```powershell
+python run_dashboard.py
+```
+
+This will:
+- create `output/dashboard.html`
+- automatically open the dashboard in your default browser
+
+### 5. Review results
+
+Open these files as needed:
+- `output/dashboard.html`
+- `output/analysis_results.json`
+- `output/audit_trail.json`
+- `output/integrity_report.json`
+
+### 6. Repeatable verification
+
+To rerun the analysis and refresh the dashboard:
+
+```powershell
+python main.py sample_evidence --max-iterations 1
+python run_dashboard.py
+```
+
+### Notes for judges
+
+- Input evidence is the repo-local folder: `sample_evidence`
+- The dashboard is generated locally and opened automatically by `run_dashboard.py`
+- The `output/` folder contains the JSON reports and the HTML dashboard for review

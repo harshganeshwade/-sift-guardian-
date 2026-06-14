@@ -1,0 +1,25 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.env/
+
+# Local editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Output and logs
+output/
+demo_output/
+sift_agent.log
+*.log
+
+# Local sample evidence or temp data
+sample_evidence/
+
+# Misc
+*.sqlite3

@@ -81,6 +81,12 @@ def parse_arguments():
         help="Generate comprehensive accuracy report"
     )
     
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Run in demo mode with simulated forensic findings (no SIFT tools required)"
+    )
+    
     return parser.parse_args()
 
 
@@ -94,6 +100,8 @@ def main():
     
     logger.info("=" * 60)
     logger.info("Protocol SIFT Enhanced - Autonomous Incident Response Agent")
+    if args.demo:
+        logger.info("*** DEMO MODE - Using simulated forensic findings ***")
     logger.info("=" * 60)
     logger.info(f"Evidence Path: {args.evidence_path}")
     logger.info(f"Case: {args.case_description}")
@@ -119,9 +127,9 @@ def main():
     logger.info(f"Audit Trail Logger initialized (Session: {audit_logger.session_id})")
     
     # 4. Agent Orchestrator
-    orchestrator = AgentOrchestrator(mcp_server, args.evidence_path)
+    orchestrator = AgentOrchestrator(mcp_server, args.evidence_path, demo_mode=args.demo)
     orchestrator.max_iterations = args.max_iterations
-    logger.info("Agent Orchestrator initialized")
+    logger.info(f"Agent Orchestrator initialized {'(demo mode)' if args.demo else ''}")
     
     # Register evidence files for integrity tracking
     logger.info("Registering evidence files for integrity tracking...")
